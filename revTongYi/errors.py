@@ -1,0 +1,2 @@
+class TongYiProtocolError(Exception):
+    pass

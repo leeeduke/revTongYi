@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "revTongYi"
+version = "0.0.3.3"
+authors = [
+  { name="xw5xr6", email="xw5xr6@hotmail.com" },
+]
+description = "阿里通义千问逆向工程API"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fake-useragent",
+    "requests"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/leeeduke/revTongYi"
+"Bug Tracker" = "https://github.com/leeeduke/revTongYi/issues"
