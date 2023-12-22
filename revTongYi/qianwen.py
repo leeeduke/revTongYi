@@ -70,13 +70,15 @@ class Chatbot:
         logging.debug(self.cookies)
 
         self.headers = {
-            "accept": "application/json, text/plain, */*",
-            "accept-encoding": "gzip, deflate, br",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-            "content-type": "application/json",
-            "referer": "https://qianwen.aliyun.com/chat",
-            "user-agent": UserAgent().chrome,
-            "x-xsrf-token": self.cookies['XSRF-TOKEN'],
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+            "Content-Type": "application/json",
+            "Origin": "https://tongyi.aliyun.com",
+            "Referer": "https://tongyi.aliyun.com/",
+            "User-Agent": UserAgent().chrome,
+            "X-Platform": "pc_tongyi",
+            "X-Xsrf-Token": self.cookies['XSRF-TOKEN'],
         }
 
     def create_session(self, firstQuery: str) -> dict:
@@ -86,7 +88,8 @@ class Chatbot:
             firstQuery (str): 首次提问内容
         """
         data = {
-            "firstQuery": firstQuery
+            "firstQuery": firstQuery,
+            "sessionType": "text_chat"
         }
 
         resp = requests.post(
@@ -130,24 +133,30 @@ class Chatbot:
         if parentId == "0":
             self.parentId = self.parentId
 
+        headers = self.headers.copy()
+
+        headers['Accept'] = 'text/event-stream'
+
         resp = requests.post(
             url=self.api_base+"/conversation",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
                 "action":"next",
-                "msgId":gen_msg_id(),
-                "parentMsgId":parentId,
                 "contents":[
                     {
                         "contentType":"text",
                         "content":prompt
                     }
                 ],
-                "timeout":timeout,
+                "model": "",
+                "modelType": "",
+                "msgId":gen_msg_id(),
                 "openSearch":open_search,
+                "parentMsgId":parentId,
                 "sessionId":self.sessionId,
-                "model":""
+                "timeout":timeout,
+                "userAction": "chat"
             }),
             timeout=timeout,
             stream=True
@@ -185,6 +194,8 @@ class Chatbot:
                         yield result
                     except Exception as e:
                         pass
+        
+        logging.debug("done: {}".format(result))
 
     def _non_stream_ask(
         self,
