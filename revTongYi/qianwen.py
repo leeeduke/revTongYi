@@ -39,13 +39,12 @@ class Chatbot:
     """Parent msg id"""
 
     def __init__(
-        self,
-        cookies: dict=None,
-        cookies_str: str="",
+            self,
+            cookies: dict = None,
+            cookies_str: str = "",
     ):
         if cookies and cookies_str:
             raise ValueError("cookies和cookies_str不能同时存在")
-        
 
         if cookies:
             self.cookies = cookies
@@ -64,9 +63,9 @@ class Chatbot:
                 if it:
                     equ_loc = it.find("=")
                     key = it[:equ_loc]
-                    value = it[equ_loc+1:]
+                    value = it[equ_loc + 1:]
                     self.cookies[key] = value
-        
+
         logging.debug(self.cookies)
 
         self.headers = {
@@ -93,7 +92,7 @@ class Chatbot:
         }
 
         resp = requests.post(
-            url=self.api_base+"/addSession",
+            url=self.api_base + "/addSession",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps(data),
@@ -114,13 +113,13 @@ class Chatbot:
             return resp_json
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp_json))
-    
+
     def _stream_ask(
-        self,
-        prompt: str,
-        open_search: bool = False,
-        parentId: str="0",
-        timeout: int = 17,
+            self,
+            prompt: str,
+            open_search: bool = False,
+            parentId: str = "0",
+            timeout: int = 17,
     ) -> typing.Generator[dict, None, None]:
         """流式回复
 
@@ -138,24 +137,24 @@ class Chatbot:
         headers['Accept'] = 'text/event-stream'
 
         resp = requests.post(
-            url=self.api_base+"/conversation",
+            url=self.api_base + "/conversation",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
-                "action":"next",
-                "contents":[
+                "action": "next",
+                "contents": [
                     {
-                        "contentType":"text",
-                        "content":prompt
+                        "contentType": "text",
+                        "content": prompt
                     }
                 ],
                 "model": "",
                 "modelType": "",
-                "msgId":gen_msg_id(),
-                "openSearch":open_search,
-                "parentMsgId":parentId,
-                "sessionId":self.sessionId,
-                "timeout":timeout,
+                "msgId": gen_msg_id(),
+                "openSearch": open_search,
+                "parentMsgId": parentId,
+                "sessionId": self.sessionId,
+                "timeout": timeout,
                 "userAction": "chat"
             }),
             timeout=timeout,
@@ -194,15 +193,15 @@ class Chatbot:
                         yield result
                     except Exception as e:
                         pass
-        
+
         logging.debug("done: {}".format(result))
 
     def _non_stream_ask(
-        self,
-        prompt: str,
-        open_search: bool = False,
-        parentId: str="0",
-        timeout: int = 17,
+            self,
+            prompt: str,
+            open_search: bool = False,
+            parentId: str = "0",
+            timeout: int = 17,
     ) -> dict:
         """非流式回复
 
@@ -216,22 +215,22 @@ class Chatbot:
         result = {}
 
         for resp in self._stream_ask(
-            prompt,
-            open_search,
-            parentId,
-            timeout
+                prompt,
+                open_search,
+                parentId,
+                timeout
         ):
             result = resp
 
         return result
 
     def ask(
-        self,
-        prompt: str,
-        parentId: str="0",
-        open_search: bool = False,
-        timeout: int = 17,
-        stream: bool = False,
+            self,
+            prompt: str,
+            parentId: str = "0",
+            open_search: bool = False,
+            timeout: int = 17,
+            stream: bool = False,
     ) -> typing.Union[typing.Generator[dict, None, None], dict]:
         """提问
 
@@ -264,7 +263,7 @@ class Chatbot:
 
     def list_session(self) -> list:
         resp = requests.post(
-            url=self.api_base+"/querySessionList",
+            url=self.api_base + "/querySessionList",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({}),
@@ -280,7 +279,7 @@ class Chatbot:
 
     def delete_session(self, sessionId: str) -> dict:
         resp = requests.post(
-            url=self.api_base+"/deleteSession",
+            url=self.api_base + "/deleteSession",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
@@ -293,10 +292,10 @@ class Chatbot:
             return resp.json()
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
-    
+
     def update_session(self, sessionId: str, summary: str) -> dict:
         resp = requests.post(
-            url=self.api_base+"/updateSession",
+            url=self.api_base + "/updateSession",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
@@ -306,6 +305,20 @@ class Chatbot:
             timeout=10
         )
 
+        if 'success' in resp.json() and resp.json()['success']:
+            return resp.json()
+        else:
+            raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+
+    def get_session_history(self, sessionId: str):
+        resp = requests.post(
+            url="https://qianwen.biz.aliyun.com/dialog/chat/list",
+            cookies=self.cookies,
+            headers=self.headers,
+            data=json.dumps({
+                "sessionId": sessionId
+            })
+        )
         if 'success' in resp.json() and resp.json()['success']:
             return resp.json()
         else:
