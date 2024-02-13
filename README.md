@@ -67,6 +67,13 @@ chatbot.delete_session(sessionId=<session_id>)
 chatbot.update_session(sessionId=<session_id>, summary=<new_title>)
 ```
 
+### 获取会话历史记录
+
+```python
+history = chatbot.get_session_history(sessionId=<session_id>)
+```
+
+
 ### CLI模式
 
 1. 安装 [Chrome/Edge](https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm) 或 [Firefox](https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/) 上的Cookies Editor插件
