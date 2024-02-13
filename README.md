@@ -70,7 +70,7 @@ chatbot.update_session(sessionId=<session_id>, summary=<new_title>)
 ### 获取会话历史记录
 
 ```python
-chatbot.get_session_history(sessionId=<session_id>)
+history = chatbot.get_session_history(sessionId=<session_id>)
 ```
 
 

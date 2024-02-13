@@ -310,7 +310,7 @@ class Chatbot:
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
 
-    def get_session_history(self, sessionId: str):
+    def get_session_history(self, sessionId: str) -> dict:
         resp = requests.post(
             url="https://qianwen.biz.aliyun.com/dialog/chat/list",
             cookies=self.cookies,
