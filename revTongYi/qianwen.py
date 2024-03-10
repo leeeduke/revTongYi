@@ -13,10 +13,10 @@ from . import errors
 
 
 def gen_request_id() -> str:
-    """生成msgId"""
+    """生成requestId"""
     # uuid无分隔符
-    msg_id = uuid.uuid4().hex
-    return msg_id
+    request_id = uuid.uuid4().hex
+    return request_id
 
 
 class Chatbot:
