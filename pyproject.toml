@@ -19,7 +19,8 @@ classifiers = [
 ]
 dependencies = [
     "fake-useragent",
-    "requests"
+    "requests",
+    "filetype"
 ]
 
 [project.urls]

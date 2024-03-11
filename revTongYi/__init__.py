@@ -38,9 +38,10 @@ def cli():
 
         for resp in reply_iter:
             lastId = resp['msgId']
-            resp_text = resp['content'][-1]
-            print(resp_text.replace(last_out, ""), end="")
-            last_out = resp_text
+            if 'contents' in resp:
+                resp_text = resp['contents'][-1]['content']
+                print(resp_text.replace(last_out, ""), end="")
+                last_out = resp_text
         
         question = input("\nYou > ")
 

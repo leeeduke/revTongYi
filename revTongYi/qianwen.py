@@ -2,6 +2,8 @@ import typing
 import json
 import uuid
 import logging
+import hashlib
+import filetype
 
 import requests
 
@@ -10,17 +12,17 @@ from fake_useragent import UserAgent
 from . import errors
 
 
-def gen_msg_id() -> str:
-    """生成msgId"""
+def gen_request_id() -> str:
+    """生成requestId"""
     # uuid无分隔符
-    msg_id = uuid.uuid4().hex
-    return msg_id
+    request_id = uuid.uuid4().hex
+    return request_id
 
 
 class Chatbot:
     """通义千问 Chatbot 对象"""
 
-    api_base: str = "https://qianwen.aliyun.com"
+    api_base: str = "https://qianwen.biz.aliyun.com/dialog"
 
     cookies: dict
 
@@ -32,7 +34,7 @@ class Chatbot:
     title: str
     """Title of current session"""
 
-    sessionId: str = None
+    sessionId: str = ""
     """Current session id"""
 
     parentId: str = "0"
@@ -43,6 +45,8 @@ class Chatbot:
             cookies: dict = None,
             cookies_str: str = "",
     ):
+        self.sessionId = ""
+        
         if cookies and cookies_str:
             raise ValueError("cookies和cookies_str不能同时存在")
 
@@ -80,54 +84,20 @@ class Chatbot:
             "X-Xsrf-Token": self.cookies['XSRF-TOKEN'],
         }
 
-    def create_session(self, firstQuery: str) -> dict:
-        """创建会话并自动切换到该会话
-
-        Args:
-            firstQuery (str): 首次提问内容
-        """
-        data = {
-            "firstQuery": firstQuery,
-            "sessionType": "text_chat"
-        }
-
-        resp = requests.post(
-            url=self.api_base + "/addSession",
-            cookies=self.cookies,
-            headers=self.headers,
-            data=json.dumps(data),
-            timeout=5
-        )
-
-        resp_json = resp.json()
-
-        if 'success' in resp_json and resp_json['success']:
-            self.sessionId = resp_json['data']['sessionId']
-            self.userId = resp_json['data']['userId']
-            self.title = resp_json['data']['summary']
-
-            self.parentId = "0"
-
-            logging.debug("created session: {}".format(resp_json))
-
-            return resp_json
-        else:
-            raise errors.TongYiProtocolError("unexpected response: {}".format(resp_json))
-
     def _stream_ask(
             self,
             prompt: str,
-            open_search: bool = False,
             parentId: str = "0",
-            timeout: int = 17,
+            timeout: int = 60,
+            image: bytes = None
     ) -> typing.Generator[dict, None, None]:
         """流式回复
 
         Args:
             prompt (str): 提问内容
-            open_search (bool, optional): 是否开启搜索. Defaults to False.
             parentId (str, optional): 父消息id. Defaults to "0".
-            timeout (int, optional): 超时时间. Defaults to 17.
+            timeout (int, optional): 超时时间. Defaults to 60.
+            image (bytes, optional): 图片二进制数据. Defaults to None.
         """
         if parentId == "0":
             self.parentId = self.parentId
@@ -136,27 +106,37 @@ class Chatbot:
 
         headers['Accept'] = 'text/event-stream'
 
-        resp = requests.post(
-            url=self.api_base + "/conversation",
-            cookies=self.cookies,
-            headers=self.headers,
-            data=json.dumps({
+        data = {
                 "action": "next",
                 "contents": [
                     {
                         "contentType": "text",
-                        "content": prompt
+                        "content": prompt,
+                        "role": "user"
                     }
                 ],
+                "mode": "chat",
                 "model": "",
-                "modelType": "",
-                "msgId": gen_msg_id(),
-                "openSearch": open_search,
+                "requestId": gen_request_id(),
                 "parentMsgId": parentId,
                 "sessionId": self.sessionId,
-                "timeout": timeout,
+                "sessionType": "text_chat" if not image else "image_chat",
                 "userAction": "chat"
-            }),
+            }
+
+        if image:
+            image_link = self.upload_image(image)
+            data["contents"].append({
+                        "contentType": "image",
+                        "content": image_link,
+                        "role": "user"
+                    })
+
+        resp = requests.post(
+            url=self.api_base + "/conversation",
+            cookies=self.cookies,
+            headers=self.headers,
+            data=json.dumps(data),
             timeout=timeout,
             stream=True
         )
@@ -199,26 +179,26 @@ class Chatbot:
     def _non_stream_ask(
             self,
             prompt: str,
-            open_search: bool = False,
             parentId: str = "0",
-            timeout: int = 17,
+            timeout: int = 60,
+            image: bytes = None
     ) -> dict:
         """非流式回复
 
         Args:
             prompt (str): 提问内容
-            open_search (bool, optional): 是否开启搜索. Defaults to False.
             parentId (str, optional): 父消息id. Defaults to "0".
-            timeout (int, optional): 超时时间. Defaults to 17.
+            timeout (int, optional): 超时时间. Defaults to 60.
+            image (bytes, optional): 图片二进制数据. Defaults to None.
         """
 
         result = {}
 
         for resp in self._stream_ask(
                 prompt,
-                open_search,
                 parentId,
-                timeout
+                timeout,
+                image
         ):
             result = resp
 
@@ -228,37 +208,37 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
-            open_search: bool = False,
-            timeout: int = 17,
+            timeout: int = 60,
             stream: bool = False,
+            image: bytes = None
     ) -> typing.Union[typing.Generator[dict, None, None], dict]:
         """提问
 
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
-            open_search (bool, optional): 是否开启搜索. Defaults to False.
-            timeout (int, optional): 超时时间. Defaults to 17.
+            timeout (int, optional): 超时时间. Defaults to 60.
             stream (bool, optional): 是否流式. Defaults to False.
+            image (bytes, optional): 图片二进制数据. Defaults to None.
         """
 
         # 检查session或新建
-        if not self.sessionId:
-            self.create_session(prompt)
+        # if not self.sessionId:
+        #     self.create_session(prompt)
 
         if stream:
             return self._stream_ask(
                 prompt,
-                open_search,
                 parentId,
-                timeout
+                timeout,
+                image
             )
         else:
             return self._non_stream_ask(
                 prompt,
-                open_search,
                 parentId,
-                timeout
+                timeout,
+                image
             )
 
     def list_session(self) -> list:
@@ -312,7 +292,7 @@ class Chatbot:
 
     def get_session_history(self, sessionId: str) -> dict:
         resp = requests.post(
-            url="https://qianwen.biz.aliyun.com/dialog/chat/list",
+            url=self.api_base + "/chat/list",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
@@ -323,3 +303,66 @@ class Chatbot:
             return resp.json()
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+
+    def _get_upload_token(self) -> dict:
+        resp = requests.post(
+            url=self.api_base + "/uploadToken",
+            headers=self.headers,
+            cookies=self.cookies,
+            data=json.dumps({})
+        )
+        if 'success' in resp.json() and resp.json()['success']:
+            return resp.json()
+        else:
+            raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+
+    def _get_download_link(self, upload_token: dict, file_name: str) -> str:
+        resp = requests.post(
+            url=self.api_base + "/downloadLink",
+            headers=self.headers,
+            cookies=self.cookies,
+            data=json.dumps({
+                "dir": upload_token["data"]["dir"],
+                "fileKey": file_name,
+                "fileType": "image"
+            })
+        )
+        if 'success' in resp.json() and resp.json()['success']:
+            return resp.json()["data"]["url"]
+        else:
+            raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+
+    def upload_image(self, image: bytes) -> str:
+        # 类型及名称
+        file_type = filetype.guess_mime(image)
+        if "image/" not in file_type:
+            raise errors.TongYiProtocolError("invalid file")
+        file_name = "image-" + hashlib.md5(image).hexdigest() + "." + file_type[6:]
+
+        # 获取上传链接
+        upload_token = self._get_upload_token()
+
+        # 上传
+        headers = self.headers.copy()
+        headers.pop("Content-Type")
+        resp = requests.post(
+            url=upload_token["data"]["host"] + "/",
+            data=None,
+            files={
+                "OSSAccessKeyId": (None, upload_token["data"]["accessId"]),
+                "policy": (None, upload_token["data"]["policy"]),
+                "signature": (None, upload_token["data"]["signature"]),
+                "key": (None, upload_token["data"]["dir"] + file_name),
+                "dir": (None, upload_token["data"]["dir"]),
+                "success_action_status": (None, "200"),
+                "file": (file_name, image, file_type)
+            },
+            headers=headers,
+            cookies=self.cookies
+        )
+
+        if resp.status_code == 200:
+            # 获取下载链接
+            return self._get_download_link(upload_token, file_name)
+        else:
+            raise errors.TongYiProtocolError(f"unexpected response: {resp.status_code}")
