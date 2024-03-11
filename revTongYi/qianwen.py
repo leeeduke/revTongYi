@@ -34,7 +34,7 @@ class Chatbot:
     title: str
     """Title of current session"""
 
-    sessionId: str = None
+    sessionId: str = ""
     """Current session id"""
 
     parentId: str = "0"
@@ -45,6 +45,8 @@ class Chatbot:
             cookies: dict = None,
             cookies_str: str = "",
     ):
+        self.sessionId = ""
+        
         if cookies and cookies_str:
             raise ValueError("cookies和cookies_str不能同时存在")
 
@@ -81,40 +83,6 @@ class Chatbot:
             "X-Platform": "pc_tongyi",
             "X-Xsrf-Token": self.cookies['XSRF-TOKEN'],
         }
-
-    def create_session(self, firstQuery: str) -> dict:
-        """创建会话并自动切换到该会话
-
-        Args:
-            firstQuery (str): 首次提问内容
-        """
-        data = {
-            "firstQuery": firstQuery,
-            "sessionType": "text_chat"
-        }
-
-        resp = requests.post(
-            url=self.api_base + "/addSession",
-            cookies=self.cookies,
-            headers=self.headers,
-            data=json.dumps(data),
-            timeout=5
-        )
-
-        resp_json = resp.json()
-
-        if 'success' in resp_json and resp_json['success']:
-            self.sessionId = resp_json['data']['sessionId']
-            self.userId = resp_json['data']['userId']
-            self.title = resp_json['data']['summary']
-
-            self.parentId = "0"
-
-            logging.debug("created session: {}".format(resp_json))
-
-            return resp_json
-        else:
-            raise errors.TongYiProtocolError("unexpected response: {}".format(resp_json))
 
     def _stream_ask(
             self,
@@ -255,8 +223,8 @@ class Chatbot:
         """
 
         # 检查session或新建
-        if not self.sessionId:
-            self.create_session(prompt)
+        # if not self.sessionId:
+        #     self.create_session(prompt)
 
         if stream:
             return self._stream_ask(
