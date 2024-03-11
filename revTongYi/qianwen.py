@@ -336,7 +336,7 @@ class Chatbot:
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
 
-    def get_upload_token(self) -> dict:
+    def _get_upload_token(self) -> dict:
         resp = requests.post(
             url=self.api_base + "/uploadToken",
             headers=self.headers,
@@ -348,7 +348,7 @@ class Chatbot:
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
 
-    def get_download_link(self, upload_token: dict, file_name: str) -> str:
+    def _get_download_link(self, upload_token: dict, file_name: str) -> str:
         resp = requests.post(
             url=self.api_base + "/downloadLink",
             headers=self.headers,
@@ -372,7 +372,7 @@ class Chatbot:
         file_name = "image-" + hashlib.md5(image).hexdigest() + "." + file_type[6:]
 
         # 获取上传链接
-        upload_token = self.get_upload_token()
+        upload_token = self._get_upload_token()
 
         # 上传
         headers = self.headers.copy()
@@ -395,6 +395,6 @@ class Chatbot:
 
         if resp.status_code == 200:
             # 获取下载链接
-            return self.get_download_link(upload_token, file_name)
+            return self._get_download_link(upload_token, file_name)
         else:
             raise errors.TongYiProtocolError(f"unexpected response: {resp.status_code}")
