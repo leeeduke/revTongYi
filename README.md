@@ -7,6 +7,12 @@
 
 阿里通义千问、通义万相 Python逆向API
 
+> **近期更改**
+> 
+> ### 2024/03/11
+> - 添加识图功能。
+> - 响应数据格式有变动，请尽快适配。
+
 ```bash
 pip install revTongYi --upgrade
 ```
@@ -41,19 +47,6 @@ chatbot = qwen.Chatbot(
 
 for resp in chatbot.ask(prompt=question, stream=True):
     print(resp)
-```
-
-### 识图对话
-
-```python
-# 获取图片二进制的示例
-import requests
-image_bytes = requests.get("https://avatars.githubusercontent.com/u/152763253").content
-
-chatbot.ask(
-    prompt="这是什么？",
-    image=image_bytes  # 传入图片的二进制数据，会自动上传给千问
-)
 ```
 
 ### 连续对话
