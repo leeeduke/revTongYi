@@ -13,8 +13,6 @@ pip install revTongYi --upgrade
 
 ## 通义千问 - AI对话
 
-- 需要通义千问测试资格
-
 ```python
 # 非流式模式
 import revTongYi.qianwen as qwen
@@ -43,6 +41,19 @@ chatbot = qwen.Chatbot(
 
 for resp in chatbot.ask(prompt=question, stream=True):
     print(resp)
+```
+
+### 识图对话
+
+```python
+# 获取图片二进制的示例
+import requests
+image_bytes = requests.get("https://avatars.githubusercontent.com/u/152763253").content
+
+chatbot.ask(
+    prompt="这是什么？",
+    image=image_bytes  # 传入图片的二进制数据，会自动上传给千问
+)
 ```
 
 ### 连续对话
