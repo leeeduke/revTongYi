@@ -49,6 +49,19 @@ for resp in chatbot.ask(prompt=question, stream=True):
     print(resp)
 ```
 
+### 识图对话
+
+```python
+# 获取图片二进制的示例
+import requests
+image_bytes = requests.get("https://avatars.githubusercontent.com/u/152763253").content
+
+chatbot.ask(
+    prompt="这是什么？",
+    image=image_bytes  # 传入图片的二进制数据，会自动上传给千问
+)
+```
+
 ### 连续对话
 
 返回值中有个`msgId`，下一次调用`ask`时以`parentId`传入这个值，即可继续对话。
