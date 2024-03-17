@@ -39,7 +39,7 @@ def cli():
         for resp in reply_iter:
             lastId = resp['msgId']
             if 'contents' in resp:
-                resp_text = resp['contents'][-1]['content']
+                resp_text = resp['contents'][-1]
                 print(resp_text.replace(last_out, ""), end="")
                 last_out = resp_text
         

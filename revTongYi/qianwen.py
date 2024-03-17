@@ -1,12 +1,11 @@
-import typing
-import json
-import uuid
-import logging
 import hashlib
+import json
+import logging
+import typing
+import uuid
+
 import filetype
-
 import requests
-
 from fake_useragent import UserAgent
 
 from . import errors
@@ -46,7 +45,7 @@ class Chatbot:
             cookies_str: str = "",
     ):
         self.sessionId = ""
-        
+
         if cookies and cookies_str:
             raise ValueError("cookies和cookies_str不能同时存在")
 
@@ -88,6 +87,7 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
+            sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
     ) -> typing.Generator[dict, None, None]:
@@ -96,6 +96,7 @@ class Chatbot:
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
+            sessionId (str, optional): 对话id. Defaults to "".
             timeout (int, optional): 超时时间. Defaults to 60.
             image (bytes, optional): 图片二进制数据. Defaults to None.
         """
@@ -107,30 +108,30 @@ class Chatbot:
         headers['Accept'] = 'text/event-stream'
 
         data = {
-                "action": "next",
-                "contents": [
-                    {
-                        "contentType": "text",
-                        "content": prompt,
-                        "role": "user"
-                    }
-                ],
-                "mode": "chat",
-                "model": "",
-                "requestId": gen_request_id(),
-                "parentMsgId": parentId,
-                "sessionId": self.sessionId,
-                "sessionType": "text_chat" if not image else "image_chat",
-                "userAction": "chat"
-            }
+            "action": "next",
+            "contents": [
+                {
+                    "contentType": "text",
+                    "content": prompt,
+                    "role": "user"
+                }
+            ],
+            "mode": "chat",
+            "model": "",
+            "requestId": gen_request_id(),
+            "parentMsgId": parentId,
+            "sessionId": sessionId if sessionId else self.sessionId,
+            "sessionType": "text_chat" if not image else "image_chat",
+            "userAction": "chat"
+        }
 
         if image:
             image_link = self.upload_image(image)
             data["contents"].append({
-                        "contentType": "image",
-                        "content": image_link,
-                        "role": "user"
-                    })
+                "contentType": "image",
+                "content": image_link,
+                "role": "user"
+            })
 
         resp = requests.post(
             url=self.api_base + "/conversation",
@@ -168,7 +169,7 @@ class Chatbot:
 
                         self.parentId = resp_json["msgId"]
 
-                        result = resp_json
+                        result = self._package_response(resp_json)
 
                         yield result
                     except Exception as e:
@@ -180,6 +181,7 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
+            sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
     ) -> dict:
@@ -188,6 +190,7 @@ class Chatbot:
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
+            sessionId (str, optional): 对话id. Defaults to "".
             timeout (int, optional): 超时时间. Defaults to 60.
             image (bytes, optional): 图片二进制数据. Defaults to None.
         """
@@ -197,6 +200,7 @@ class Chatbot:
         for resp in self._stream_ask(
                 prompt,
                 parentId,
+                sessionId,
                 timeout,
                 image
         ):
@@ -208,6 +212,7 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
+            sessionId: str = "",
             timeout: int = 60,
             stream: bool = False,
             image: bytes = None
@@ -217,6 +222,7 @@ class Chatbot:
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
+            sessionId (str, optional): 对话id. Defaults to "".
             timeout (int, optional): 超时时间. Defaults to 60.
             stream (bool, optional): 是否流式. Defaults to False.
             image (bytes, optional): 图片二进制数据. Defaults to None.
@@ -230,6 +236,7 @@ class Chatbot:
             return self._stream_ask(
                 prompt,
                 parentId,
+                sessionId,
                 timeout,
                 image
             )
@@ -237,6 +244,7 @@ class Chatbot:
             return self._non_stream_ask(
                 prompt,
                 parentId,
+                sessionId,
                 timeout,
                 image
             )
@@ -303,6 +311,27 @@ class Chatbot:
             return resp.json()
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+
+    @staticmethod
+    def _package_response(response: dict) -> dict:
+        if response.get("contents"):
+            packaged_response = {
+                "contentType": response["contentType"],
+                "contents": [content["content"] for content in response["contents"]],
+                "msgStatus": response["msgStatus"],
+                "msgId": response["msgId"],
+                "parentMsgId": response["parentMsgId"],
+                "sessionId": response["sessionId"]
+            }
+        else:
+            packaged_response = {
+                "contentType": response["contentType"],
+                "msgStatus": response["msgStatus"],
+                "msgId": response["msgId"],
+                "parentMsgId": response["parentMsgId"],
+                "sessionId": response["sessionId"]
+            }
+        return packaged_response
 
     def _get_upload_token(self) -> dict:
         resp = requests.post(
