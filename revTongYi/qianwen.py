@@ -168,6 +168,7 @@ class Chatbot:
                         pending = ""
 
                         self.parentId = resp_json["msgId"]
+                        self.sessionId = resp_json["sessionId"]
 
                         result = self._package_response(resp_json)
 
