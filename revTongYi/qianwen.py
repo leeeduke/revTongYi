@@ -18,6 +18,11 @@ def gen_request_id() -> str:
     return request_id
 
 
+class QianWenResponse(dict):
+    """仅可获取值的对象"""
+    __getattr__ = dict.__getitem__
+
+
 class Chatbot:
     """通义千问 Chatbot 对象"""
 
@@ -90,7 +95,7 @@ class Chatbot:
             sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
-    ) -> typing.Generator[dict, None, None]:
+    ) -> typing.Generator[QianWenResponse, None, None]:
         """流式回复
 
         Args:
@@ -172,7 +177,7 @@ class Chatbot:
 
                         result = self._package_response(resp_json)
 
-                        yield result
+                        yield self._transform_response(result)
                     except Exception as e:
                         pass
 
@@ -185,7 +190,7 @@ class Chatbot:
             sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
-    ) -> dict:
+    ) -> QianWenResponse:
         """非流式回复
 
         Args:
@@ -217,7 +222,7 @@ class Chatbot:
             timeout: int = 60,
             stream: bool = False,
             image: bytes = None
-    ) -> typing.Union[typing.Generator[dict, None, None], dict]:
+    ) -> typing.Union[typing.Generator[QianWenResponse, None, None], QianWenResponse]:
         """提问
 
         Args:
@@ -250,7 +255,7 @@ class Chatbot:
                 image
             )
 
-    def list_session(self) -> list:
+    def list_session(self) -> QianWenResponse:
         resp = requests.post(
             url=self.api_base + "/querySessionList",
             cookies=self.cookies,
@@ -262,11 +267,11 @@ class Chatbot:
         resp_json = resp.json()
 
         if 'success' in resp_json and resp_json['success']:
-            return resp_json['data']
+            return self._transform_response(resp_json['data'])
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp_json))
 
-    def delete_session(self, sessionId: str) -> dict:
+    def delete_session(self, sessionId: str) -> QianWenResponse:
         resp = requests.post(
             url=self.api_base + "/deleteSession",
             cookies=self.cookies,
@@ -278,11 +283,11 @@ class Chatbot:
         )
 
         if 'success' in resp.json() and resp.json()['success']:
-            return resp.json()
+            return self._transform_response(resp.json())
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
 
-    def update_session(self, sessionId: str, summary: str) -> dict:
+    def update_session(self, sessionId: str, summary: str) -> QianWenResponse:
         resp = requests.post(
             url=self.api_base + "/updateSession",
             cookies=self.cookies,
@@ -295,11 +300,11 @@ class Chatbot:
         )
 
         if 'success' in resp.json() and resp.json()['success']:
-            return resp.json()
+            return self._transform_response(resp.json())
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
 
-    def get_session_history(self, sessionId: str) -> dict:
+    def get_session_history(self, sessionId: str) -> QianWenResponse:
         resp = requests.post(
             url=self.api_base + "/chat/list",
             cookies=self.cookies,
@@ -309,12 +314,11 @@ class Chatbot:
             })
         )
         if 'success' in resp.json() and resp.json()['success']:
-            return resp.json()
+            return self._transform_response(resp.json())
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
 
-    @staticmethod
-    def _package_response(response: dict) -> dict:
+    def _package_response(self, response: dict) -> QianWenResponse:
         if response.get("contents"):
             packaged_response = {
                 "contentType": response["contentType"],
@@ -332,7 +336,16 @@ class Chatbot:
                 "parentMsgId": response["parentMsgId"],
                 "sessionId": response["sessionId"]
             }
-        return packaged_response
+        return self._transform_response(packaged_response)
+
+    def _transform_response(self, response) -> QianWenResponse:
+        """字典转换对象"""
+        if not isinstance(response, dict):
+            return response
+        d = QianWenResponse()
+        for k, v in response.items():
+            d[k] = self._transform_response(v)
+        return d
 
     def _get_upload_token(self) -> dict:
         resp = requests.post(
