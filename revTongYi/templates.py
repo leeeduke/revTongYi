@@ -120,3 +120,17 @@ class OrdinaryResponse:
 
     def __repr__(self):
         return str(self)
+
+
+if __name__ == '__main__':
+    a = QianWenChatResponse(
+        {'canFeedback': True, 'canRegenerate': True, 'canShare': True, 'canShow': True, 'contentFrom': 'vision',
+         'contentType': 'text', 'contents': [{
+            'content': '这是一幅描绘花朵的艺术作品。图中展示了一朵盛开的橙色花朵，周围还有其他小花和绿叶作为装饰。整体风格显得非常生动和鲜艳。',
+            'contentType': 'text', 'id': '19903f64fb994cc2a26d4ab1ba92dc68_0',
+            'role': 'assistant', 'status': 'finished'}],
+         'msgId': '19903f64fb994cc2a26d4ab1ba92dc68', 'msgStatus': 'finished',
+         'parentMsgId': '1e42bb3c4b104c28941e1b24bc0ada35', 'sessionId': '1341e51a96814e6bb0c595c3cf2469b8',
+         'sessionOpen': True, 'sessionShare': True, 'sessionWarnNew': False, 'stopReason': 'stop',
+         'traceId': '0b737e0f17100399850196871e6f42'})
+    print(a["contents"])
