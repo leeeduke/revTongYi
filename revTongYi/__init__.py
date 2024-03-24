@@ -37,9 +37,9 @@ def cli():
         print("AI  > ", end="")
 
         for resp in reply_iter:
-            lastId = resp['msgId']
+            lastId = resp.msgId
             if 'contents' in resp:
-                resp_text = resp['contents'][-1]
+                resp_text = resp.contents[-1].content
                 print(resp_text.replace(last_out, ""), end="")
                 last_out = resp_text
         
