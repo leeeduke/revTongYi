@@ -17,6 +17,8 @@
 pip install revTongYi --upgrade
 ```
 
+> 以下接口的返回值均可在源码或方法的 Type Hints 里查看
+
 ## 通义千问 - AI对话
 
 ```python
@@ -65,19 +67,6 @@ chatbot.ask(
 ### 连续对话
 
 返回值中有`msgId`和`sessionId`，下一次调用`ask`时以`parentId`和`sessionId`传入这两个值，即可继续对话。
-
-### 响应示例
-```json
-{
-    "contentType": "text",
-    "contents": ["你好"], 
-    "msgStatus": "finished", 
-    "msgId": "<msgId>", 
-    "parentMsgId": "<parentMsgId>", 
-    "sessionId": "<sessionId>"
-}
-
-```
 
 ### 列出会话列表
 
