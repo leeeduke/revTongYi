@@ -9,7 +9,7 @@ import requests
 from fake_useragent import UserAgent
 
 from . import errors
-from .templates import *
+from .entity import *
 
 
 def gen_request_id() -> str:
