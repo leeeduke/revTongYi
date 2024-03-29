@@ -1,15 +1,15 @@
-import typing
-import json
-import uuid
-import logging
 import hashlib
+import json
+import logging
+import typing
+import uuid
+
 import filetype
-
 import requests
-
 from fake_useragent import UserAgent
 
 from . import errors
+from .entity import *
 
 
 def gen_request_id() -> str:
@@ -46,7 +46,7 @@ class Chatbot:
             cookies_str: str = "",
     ):
         self.sessionId = ""
-        
+
         if cookies and cookies_str:
             raise ValueError("cookies和cookies_str不能同时存在")
 
@@ -88,14 +88,16 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
+            sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
-    ) -> typing.Generator[dict, None, None]:
+    ) -> typing.Generator[QianWenChatResponse, None, None]:
         """流式回复
 
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
+            sessionId (str, optional): 对话id. Defaults to "".
             timeout (int, optional): 超时时间. Defaults to 60.
             image (bytes, optional): 图片二进制数据. Defaults to None.
         """
@@ -107,30 +109,30 @@ class Chatbot:
         headers['Accept'] = 'text/event-stream'
 
         data = {
-                "action": "next",
-                "contents": [
-                    {
-                        "contentType": "text",
-                        "content": prompt,
-                        "role": "user"
-                    }
-                ],
-                "mode": "chat",
-                "model": "",
-                "requestId": gen_request_id(),
-                "parentMsgId": parentId,
-                "sessionId": self.sessionId,
-                "sessionType": "text_chat" if not image else "image_chat",
-                "userAction": "chat"
-            }
+            "action": "next",
+            "contents": [
+                {
+                    "contentType": "text",
+                    "content": prompt,
+                    "role": "user"
+                }
+            ],
+            "mode": "chat",
+            "model": "",
+            "requestId": gen_request_id(),
+            "parentMsgId": parentId,
+            "sessionId": sessionId if sessionId else self.sessionId,
+            "sessionType": "text_chat" if not image else "image_chat",
+            "userAction": "chat"
+        }
 
         if image:
             image_link = self.upload_image(image)
             data["contents"].append({
-                        "contentType": "image",
-                        "content": image_link,
-                        "role": "user"
-                    })
+                "contentType": "image",
+                "content": image_link,
+                "role": "user"
+            })
 
         resp = requests.post(
             url=self.api_base + "/conversation",
@@ -167,8 +169,9 @@ class Chatbot:
                         pending = ""
 
                         self.parentId = resp_json["msgId"]
+                        self.sessionId = resp_json["sessionId"]
 
-                        result = resp_json
+                        result = QianWenChatResponse(resp_json)
 
                         yield result
                     except Exception as e:
@@ -180,14 +183,16 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
+            sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
-    ) -> dict:
+    ) -> QianWenChatResponse:
         """非流式回复
 
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
+            sessionId (str, optional): 对话id. Defaults to "".
             timeout (int, optional): 超时时间. Defaults to 60.
             image (bytes, optional): 图片二进制数据. Defaults to None.
         """
@@ -197,6 +202,7 @@ class Chatbot:
         for resp in self._stream_ask(
                 prompt,
                 parentId,
+                sessionId,
                 timeout,
                 image
         ):
@@ -208,15 +214,17 @@ class Chatbot:
             self,
             prompt: str,
             parentId: str = "0",
+            sessionId: str = "",
             timeout: int = 60,
             stream: bool = False,
             image: bytes = None
-    ) -> typing.Union[typing.Generator[dict, None, None], dict]:
+    ) -> typing.Union[typing.Generator[QianWenChatResponse, None, None], QianWenChatResponse]:
         """提问
 
         Args:
             prompt (str): 提问内容
             parentId (str, optional): 父消息id. Defaults to "0".
+            sessionId (str, optional): 对话id. Defaults to "".
             timeout (int, optional): 超时时间. Defaults to 60.
             stream (bool, optional): 是否流式. Defaults to False.
             image (bytes, optional): 图片二进制数据. Defaults to None.
@@ -230,6 +238,7 @@ class Chatbot:
             return self._stream_ask(
                 prompt,
                 parentId,
+                sessionId,
                 timeout,
                 image
             )
@@ -237,45 +246,48 @@ class Chatbot:
             return self._non_stream_ask(
                 prompt,
                 parentId,
+                sessionId,
                 timeout,
                 image
             )
 
-    def list_session(self) -> list:
+    def list_session(self) -> list[OrdinaryResponse]:
         resp = requests.post(
-            url=self.api_base + "/querySessionList",
+            url=self.api_base + "/session/list",
             cookies=self.cookies,
             headers=self.headers,
-            data=json.dumps({}),
+            json={
+                "keyword": ""
+            },
             timeout=10
         )
 
         resp_json = resp.json()
 
         if 'success' in resp_json and resp_json['success']:
-            return resp_json['data']
+            return [OrdinaryResponse(content) for content in resp_json['data']]
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp_json))
 
-    def delete_session(self, sessionId: str) -> dict:
+    def delete_session(self, sessionId: str) -> OrdinaryResponse:
         resp = requests.post(
-            url=self.api_base + "/deleteSession",
+            url=self.api_base + "/session/delete",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
                 "sessionId": sessionId
             }),
             timeout=10
-        )
+        ).json()
 
-        if 'success' in resp.json() and resp.json()['success']:
-            return resp.json()
+        if 'success' in resp and resp['success']:
+            return OrdinaryResponse(resp)
         else:
-            raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+            raise errors.TongYiProtocolError("unexpected response: {}".format(resp))
 
-    def update_session(self, sessionId: str, summary: str) -> dict:
+    def update_session(self, sessionId: str, summary: str) -> OrdinaryResponse:
         resp = requests.post(
-            url=self.api_base + "/updateSession",
+            url=self.api_base + "/session/update",
             cookies=self.cookies,
             headers=self.headers,
             data=json.dumps({
@@ -283,14 +295,14 @@ class Chatbot:
                 "summary": summary
             }),
             timeout=10
-        )
+        ).json()
 
-        if 'success' in resp.json() and resp.json()['success']:
-            return resp.json()
+        if 'success' in resp and resp['success']:
+            return resp
         else:
-            raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+            raise errors.TongYiProtocolError("unexpected response: {}".format(resp))
 
-    def get_session_history(self, sessionId: str) -> dict:
+    def get_session_history(self, sessionId: str) -> list[HistoryResponse]:
         resp = requests.post(
             url=self.api_base + "/chat/list",
             cookies=self.cookies,
@@ -298,11 +310,11 @@ class Chatbot:
             data=json.dumps({
                 "sessionId": sessionId
             })
-        )
-        if 'success' in resp.json() and resp.json()['success']:
-            return resp.json()
+        ).json()
+        if 'success' in resp and resp['success']:
+            return [HistoryResponse(content) for content in resp["data"]]
         else:
-            raise errors.TongYiProtocolError("unexpected response: {}".format(resp.json()))
+            raise errors.TongYiProtocolError("unexpected response: {}".format(resp))
 
     def _get_upload_token(self) -> dict:
         resp = requests.post(
