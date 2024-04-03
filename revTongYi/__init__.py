@@ -10,6 +10,7 @@ from . import qianwen
 
 def cli():
     cookies_file_content = []
+    sessionId = ""
     with open("cookies.json", encoding="utf-8") as f:
         cookies_file_content = json.load(f)
 
@@ -29,6 +30,7 @@ def cli():
         reply_iter = session.ask(
             prompt=question,
             parentId=lastId,
+            sessionId=sessionId,
             stream=True
         )
 
@@ -42,6 +44,7 @@ def cli():
                 resp_text = resp.contents[-1].content
                 print(resp_text.replace(last_out, ""), end="")
                 last_out = resp_text
+                sessionId = resp.sessionId
         
         question = input("\nYou > ")
 

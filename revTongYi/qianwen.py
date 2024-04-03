@@ -45,7 +45,6 @@ class Chatbot:
             cookies: dict = None,
             cookies_str: str = "",
     ):
-        self.sessionId = ""
 
         if cookies and cookies_str:
             raise ValueError("cookies和cookies_str不能同时存在")
@@ -121,7 +120,7 @@ class Chatbot:
             "model": "",
             "requestId": gen_request_id(),
             "parentMsgId": parentId,
-            "sessionId": sessionId if sessionId else self.sessionId,
+            "sessionId": sessionId,
             "sessionType": "text_chat" if not image else "image_chat",
             "userAction": "chat"
         }
@@ -166,14 +165,18 @@ class Chatbot:
 
                         resp_json = json.loads(pending)
 
+                        if resp_json.get("errorCode"):
+                            raise errors.TongYiProtocolError("unexpected response: {}".format(resp_json))
+
                         pending = ""
 
                         self.parentId = resp_json["msgId"]
-                        self.sessionId = resp_json["sessionId"]
 
                         result = QianWenChatResponse(resp_json)
 
                         yield result
+                    except errors.TongYiProtocolError as e:
+                        raise e
                     except Exception as e:
                         pass
 
