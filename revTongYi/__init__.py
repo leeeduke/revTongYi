@@ -1,3 +1,4 @@
+import time
 import requests
 import typing
 import json
@@ -40,9 +41,10 @@ def cli():
 
         for resp in reply_iter:
             lastId = resp.msgId
-            if 'contents' in resp:
+            if resp.contents:
                 resp_text = resp.contents[-1].content
-                print(resp_text.replace(last_out, ""), end="")
+                print(resp_text.replace(last_out, ""), end="", flush=True)
+                time.sleep(0.1)
                 last_out = resp_text
                 sessionId = resp.sessionId
         
