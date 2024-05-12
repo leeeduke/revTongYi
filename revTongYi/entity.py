@@ -1,6 +1,7 @@
 """
 响应模版
 """
+from typing import List, Union
 
 
 class ChatContent:
@@ -29,12 +30,22 @@ class ChatContent:
         return str(self)
 
 
+def handle_contents(contents: List[dict]) -> List[ChatContent]:
+    """处理对话内容"""
+    content_list = []
+    for content in contents:
+        if content["contentType"] in ["text", "text2image"]:
+            content["content"] = content["content"]
+            content_list.append(ChatContent(content))
+    return content_list
+
+
 class QianWenChatResponse:
     """
     对话响应模版
     """
     contentType: str
-    contents: list[ChatContent] | None
+    contents: Union[List[ChatContent], None]
     msgStatus: str
     msgId: str
     parentMsgId: str
@@ -43,8 +54,7 @@ class QianWenChatResponse:
     def __init__(self, response: dict):
         packaged_response = {
             "contentType": response["contentType"],
-            "contents": [ChatContent(content) for content in response["contents"]] if response.get(
-                "contents") else None,
+            "contents": handle_contents(response["contents"]) if response.get("contents") else None,
             "msgStatus": response["msgStatus"],
             "msgId": response["msgId"],
             "parentMsgId": response["parentMsgId"],
@@ -74,7 +84,7 @@ class HistoryResponse:
     msgStatus: str
     parentMsgId: str
     contentType: str
-    contents: list[ChatContent] | None
+    contents: Union[List[ChatContent], None]
     senderType: str
     createTime: int
 
@@ -85,8 +95,7 @@ class HistoryResponse:
             "msgStatus": response["msgStatus"],
             "parentMsgId": response["parentMsgId"],
             "contentType": response["contentType"],
-            "contents": [ChatContent(content) for content in response["contents"]] if response.get(
-                "contents") else None,
+            "contents": handle_contents(response["contents"]) if response.get("contents") else None,
             "senderType": response["senderType"],
             "createTime": response["createTime"]
         }
