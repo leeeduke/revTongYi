@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-import typing
+from typing import List, Generator, Union
 import uuid
 
 import filetype
@@ -90,7 +90,7 @@ class Chatbot:
             sessionId: str = "",
             timeout: int = 60,
             image: bytes = None
-    ) -> typing.Generator[QianWenChatResponse, None, None]:
+    ) -> Generator[QianWenChatResponse, None, None]:
         """流式回复
 
         Args:
@@ -221,7 +221,7 @@ class Chatbot:
             timeout: int = 60,
             stream: bool = False,
             image: bytes = None
-    ) -> typing.Union[typing.Generator[QianWenChatResponse, None, None], QianWenChatResponse]:
+    ) -> Union[Generator[QianWenChatResponse, None, None], QianWenChatResponse]:
         """提问
 
         Args:
@@ -254,7 +254,7 @@ class Chatbot:
                 image
             )
 
-    def list_session(self) -> list[OrdinaryResponse]:
+    def list_session(self) -> List[OrdinaryResponse]:
         resp = requests.post(
             url=self.api_base + "/session/list",
             cookies=self.cookies,
@@ -305,7 +305,7 @@ class Chatbot:
         else:
             raise errors.TongYiProtocolError("unexpected response: {}".format(resp))
 
-    def get_session_history(self, sessionId: str) -> list[HistoryResponse]:
+    def get_session_history(self, sessionId: str) -> List[HistoryResponse]:
         resp = requests.post(
             url=self.api_base + "/chat/list",
             cookies=self.cookies,
