@@ -1,5 +1,6 @@
 # revTongYi
 
+> 本仓库没精力维护了，可以试试 https://github.com/WhyPilotXia/revQianWen  
 > 原作者 `xw5xr6` 已销号跑路，现接手维护
 
 [![PyPi](https://img.shields.io/pypi/v/revTongYi.svg)](https://pypi.python.org/pypi/revTongYi)
